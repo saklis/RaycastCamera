@@ -3,7 +3,7 @@ RaycastCamera = class
   
   constructor = function()
     this.Position = new RCVec(-20, 0)
-    this.Rotation = 0 // degrees
+    this.Rotation = 330 // degrees
     
     this.FieldOfView = 60 // degrees
     
@@ -33,6 +33,8 @@ RaycastCamera = class
     b.X = x
     b.Y = y
     b.Width = width
+    b.Radius = width/2
+    b.RadiusSquared = b.Radius * b.Radius
     b.Height = height
     
     this.Billboards.push(b)
@@ -83,38 +85,40 @@ RaycastCamera = class
             continue
           end
           
-          local billX1 = this.Billboards[b].X - this.Billboards[b].Width/2
-          local billX2 = this.Billboards[b].X + this.Billboards[b].Width/2
-          local billY1 = this.Billboards[b].Y - this.Billboards[b].Height/2
-          local billY2 = this.Billboards[b].Y + this.Billboards[b].Height/2
+          local dx = hitCheckLocX - this.Billboards[b].X
+          local dy = hitCheckLocY - this.Billboards[b].Y
           
-          if hitCheckLocX >= billX1
-          and hitCheckLocX <= billX2
-          and hitCheckLocY >= billY1
-          and hitCheckLocY <= billY2
-          then
-            distance = this.Position.Distance(this.Billboards[b].X, this.Billboards[b].Y)
+          if dx * dx + dy * dy <= this.Billboards[b].RadiusSquared then
             
-            hitPlace = abs(hitCheckLocX - billX1) / this.Billboards[b].Width
-            if hitPlace <= this.RayHitDetectionStep or
-               hitPlace > billX2 then
-              side = 1
+            distance = this.Position.Distance(this.Billboards[b].X, this.Billboards[b].Y) + this.Billboards[b].Width
+            
+            local billboardSpliceX = hitCheckLocX + this.Billboards[b].Radius * cosd(ray.Direction)
+            local billboardSpliceY = hitCheckLocY + this.Billboards[b].Radius * sind(ray.Direction)
+            
+            local spliceDist = RCVec.StaticDistance(this.Billboards[b].X, this.Billboards[b].Y, billboardSpliceX, billboardSpliceY)
+            
+            local spliceReminder = this.Billboards[b].Radius - spliceDist
+            
+            local ux = billboardSpliceX - this.Position.X
+            local uy = billboardSpliceY - this.Position.Y
+            local vx = this.Billboards[b].X - this.Position.X
+            local vy = this.Billboards[b].Y - this.Position.Y
+            
+            local cross = ux * vy - uy * vx
+            
+            if cross <= 0 then
+              textureU = spliceReminder / this.Billboards[b].Width
             else
-              side = 0
-            end
-      
-            if side == 0 then
-              textureU = hitPlace
-            else
-              textureU = abs(hitCheckLocY - billY1) / this.Billboards[b].Height
+              textureU = 1 - spliceReminder / this.Billboards[b].Width
             end
             
-            hits_billboards.push(new RCHitInfo(this.Billboards[b].SpriteName, 
-                                distance,
-                                0,
-                                textureU,
-                                i))
-                              
+            hits_billboards.push(new RCHitInfo(
+                                      this.Billboards[b].SpriteName, 
+                                      distance,
+                                      0,
+                                      textureU,
+                                      i))
+            
             this.Billboards[b].RayHandled.push(i)
           end
         end
@@ -172,6 +176,9 @@ RaycastCamera = class
         screen.drawSprite(this.Billboards[b].SpriteName, this.Billboards[b].X, this.Billboards[b].Y, this.Billboards[b].Width, this.Billboards[b].Height)
       end
     end
+    
+    // sort billboards by longest distance (draw those further away first)
+    hits_billboards.sortList(RCHitInfo.StaticCompare)
       
     // all data gathered. Can start drawing now
   
@@ -254,6 +261,13 @@ RCVec = class
     
     return sqrt(deltaX * deltaX + deltaY * deltaY)
   end
+  
+  StaticDistance = function(firstX, firstY, secondX, secondY)
+    local deltaX = secondX - firstX
+    local deltaY = secondY - firstY
+    
+    return sqrt(deltaX * deltaX + deltaY * deltaY)
+  end
 end
 
 RaycastCameraRay = class
@@ -272,6 +286,10 @@ RCHitInfo = class
     this.TextureU = textureU
     this.RayNumber = rayNumber
   end
+  
+  StaticCompare = function(hi1,hi2)
+  return hi2.Distance - hi1.Distance
+end
 end
 
 RCBillboard = class
@@ -281,6 +299,8 @@ RCBillboard = class
     this.Y = 0
     this.Width = 8
     this.Height = 8
+    this.Radius = 4
+    this.RadiusSquared = 16
     this.RayHandled = []
   end
 end

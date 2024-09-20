@@ -1,7 +1,5 @@
 Camera = 0
 
-mouseX = 0
-
 init = function()
   Camera = new RaycastCamera()
   Camera.SetMap("testmap")
@@ -30,9 +28,8 @@ update = function()
   end
   
   // MOUSE
-  if mouse.x != mouseX then
-    Camera.Rotation += (mouseX - mouse.x) * 0.1
-    mouseX = mouse.x
+  if mouse.dx != 0 then
+    Camera.Rotation -= mouse.dx * 0.2
   end
   
   // DEBUG VIEW
@@ -61,7 +58,7 @@ draw = function()
   
   // add billboards - all things that should be drawn, beside the map - enemies, items, special effects
   Camera.AddBillboard("monster", 10, 0, 8, 8)
-  //Camera.AddBillboard("monster", 20, 0, 8, 8)
+  Camera.AddBillboard("monster", 20, 0, 8, 8)
   
   // draw everything
   Camera.Draw()
